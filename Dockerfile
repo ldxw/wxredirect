@@ -34,6 +34,9 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --no-progress --no-scripts
 
 COPY . .
+# 安装页默认填 localhost，在容器里必然是错的；镜像里默认成 compose 的服务名 db
+RUN sed -i 's/name="mysql_host" value="localhost"/name="mysql_host" value="db"/' app/view/install/index.html \
+    && grep -q 'name="mysql_host" value="db"' app/view/install/index.html
 RUN composer dump-autoload --no-dev --optimize --no-scripts \
     && php think service:discover \
     && rm -rf .git data .env

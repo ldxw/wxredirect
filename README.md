@@ -68,6 +68,23 @@ docker compose up -d --build
 | 数据库密码 | `.env` 里的 `DB_PASSWORD` |
 | 表前缀 | 默认 `cloud_` 即可 |
 
+如果安装页提示 **连接数据库失败：数据库地址填写错误**，通常是这两种情况：
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 默认 `localhost` 报错 | 容器里的 localhost 是容器自己，不是数据库 | 地址填 `db`（镜像里已默认成 `db`） |
+| 填 `db` 也报错 | 只单独 `docker run` 了镜像，没有起数据库 | 用本仓库的 compose 起整套，或把地址换成你已有的 MySQL 地址 |
+
+自检：
+
+```bash
+docker compose ps                                  # 两个服务都要 Up/healthy
+docker exec wxredirect getent hosts db             # 能解析出 IP
+docker exec wxredirect-db mysql -uroot -p"$DB_ROOT_PASSWORD" -e "select 1"
+```
+
+改过 `.env` 里的 `DB_PASSWORD` 但之前已经启动过，数据库卷里还是旧密码，需要用新密码或清空卷重来。
+
 安装状态保存在宿主机 `./data/.env`，数据库在 `db_data` 卷里，`docker compose down` 之后重新 `up`
 不需要重新安装。要重装就删掉 `data/.env` 并清空数据库卷：
 
