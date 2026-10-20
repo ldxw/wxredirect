@@ -27,6 +27,8 @@ Route::any('/install', 'install/index');
 Route::get('/admin/verifycode', 'admin/verifycode')->middleware(\think\middleware\SessionInit::class);
 Route::any('/admin/login', 'admin/login')->middleware(\think\middleware\SessionInit::class);
 Route::get('/admin/logout', 'admin/logout');
+Route::get('/admin/qqlogin', 'admin/qqlogin')->middleware(\think\middleware\SessionInit::class);
+Route::get('/admin/qqcallback', 'admin/qqcallback')->middleware(\think\middleware\SessionInit::class);
 
 Route::get('/admin/', function () {
     return redirect('index');
@@ -38,6 +40,9 @@ Route::group('admin', function () {
     });
     Route::any('/index', 'admin/index');
     Route::any('/set', 'admin/set');
+    Route::any('/qqset', 'admin/qqset');
+    Route::get('/qqbind', 'admin/qqbind');
+    Route::post('/qqunbind', 'admin/qqunbind');
     Route::get('/doc', 'admin/doc');
     Route::any('/domain', 'admin/domain');
     Route::post('/domain_data', 'admin/domain_data');

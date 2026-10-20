@@ -43,7 +43,222 @@ class Admin extends BaseController
                 return json(['code' => -1, 'msg' => '用户名或密码错误']);
             }
         }
+        View::assign('qqlogin', $this->qqReady());
         return view();
+    }
+
+
+    /** QQ 互联是否已配置并完成绑定 */
+    private function qqReady()
+    {
+        return config_get('qqlogin_enable') && config_get('qqlogin_appid')
+            && config_get('qqlogin_appkey') && config_get('qqlogin_openid');
+    }
+
+    private function qqCallbackUrl()
+    {
+        return rtrim(request()->domain(), '/') . '/admin/qqcallback';
+    }
+
+    private function qqState($intent)
+    {
+        $state = md5(random(16) . microtime(true));
+        session('qq_state', $state);
+        session('qq_intent', $intent);
+        return $state;
+    }
+
+    private function qqAuthorizeUrl($state)
+    {
+        $query = http_build_query([
+            'response_type' => 'code',
+            'client_id'     => config_get('qqlogin_appid'),
+            'redirect_uri'  => $this->qqCallbackUrl(),
+            'state'         => $state,
+            'scope'         => 'get_user_info',
+        ]);
+        return 'https://graph.qq.com/oauth2.0/authorize?' . $query;
+    }
+
+    private function qqRequest($url)
+    {
+        if (!function_exists('curl_init')) {
+            return '';
+        }
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT      => 'wxredirect',
+        ]);
+        $body = curl_exec($ch);
+        $error = curl_error($ch);
+        curl_close($ch);
+        if ($body === false) {
+            \think\facade\Log::error('qq oauth: ' . $error);
+            return '';
+        }
+        return $body;
+    }
+
+    private function qqAccessToken($code)
+    {
+        $url = 'https://graph.qq.com/oauth2.0/token?' . http_build_query([
+            'grant_type'    => 'authorization_code',
+            'client_id'     => config_get('qqlogin_appid'),
+            'client_secret' => config_get('qqlogin_appkey'),
+            'code'          => $code,
+            'redirect_uri'  => $this->qqCallbackUrl(),
+            'fmt'           => 'json',
+        ]);
+        $data = json_decode($this->qqRequest($url), true);
+        return is_array($data) && !empty($data['access_token']) ? $data['access_token'] : '';
+    }
+
+    private function qqOpenid($token)
+    {
+        $url = 'https://graph.qq.com/oauth2.0/me?' . http_build_query([
+            'access_token' => $token,
+            'fmt'          => 'json',
+        ]);
+        $data = json_decode($this->qqRequest($url), true);
+        return is_array($data) && !empty($data['openid']) ? $data['openid'] : '';
+    }
+
+    private function qqUserInfo($token, $openid)
+    {
+        $url = 'https://graph.qq.com/user/get_user_info?' . http_build_query([
+            'access_token'       => $token,
+            'oauth_consumer_key' => config_get('qqlogin_appid'),
+            'openid'             => $openid,
+        ]);
+        $data = json_decode($this->qqRequest($url), true);
+        return is_array($data) && isset($data['ret']) && $data['ret'] == 0 ? $data : [];
+    }
+
+    private function qqLoginSession()
+    {
+        $username = config_get('admin_username');
+        $session = md5($username . config_get('admin_password'));
+        $expiretime = time() + 2562000;
+        $token = authcode("{$username}\t{$session}\t{$expiretime}", 'ENCODE', config_get('syskey'));
+        cookie('admin_token', $token, ['expire' => $expiretime, 'httponly' => true]);
+        config_set('admin_lastlogin', date('Y-m-d H:i:s'));
+        Db::name('log')->insert([
+            'uid'     => 0,
+            'action'  => '登录后台',
+            'data'    => 'IP:' . $this->clientip . '（QQ 一键登录）',
+            'addtime' => date("Y-m-d H:i:s"),
+        ]);
+    }
+
+    private function qqMessage($msg)
+    {
+        $html = '<!doctype html><html><head><meta charset="utf-8"><title>QQ 一键登录</title>'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+            . '<body style="margin:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',\'Microsoft YaHei\',sans-serif">'
+            . '<div style="max-width:420px;margin:15vh auto;background:#fff;border-radius:8px;padding:28px 24px;box-shadow:0 2px 12px rgba(0,0,0,.08)">'
+            . '<h3 style="margin:0 0 12px;font-size:18px;color:#333">QQ 一键登录</h3>'
+            . '<p style="margin:0 0 20px;color:#666;line-height:1.7">' . htmlspecialchars($msg, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<a href="/admin/login" style="display:inline-block;padding:9px 18px;border-radius:4px;background:#1E9FFF;color:#fff;text-decoration:none">返回登录</a>'
+            . '</div></body></html>';
+        return response($html);
+    }
+
+    /** 发起 QQ 登录（登录页按钮） */
+    public function qqlogin()
+    {
+        if (!config_get('qqlogin_enable') || !config_get('qqlogin_appid') || !config_get('qqlogin_appkey')) {
+            return $this->qqMessage('后台没有开启 QQ 一键登录。');
+        }
+        if (!config_get('qqlogin_openid')) {
+            return $this->qqMessage('还没有绑定管理员 QQ，请先用账号密码登录后台完成绑定。');
+        }
+        return redirect($this->qqAuthorizeUrl($this->qqState('login')));
+    }
+
+    /** 已登录状态下绑定当前 QQ */
+    public function qqbind()
+    {
+        if (!request()->islogin) {
+            return redirect('/admin/login');
+        }
+        if (!config_get('qqlogin_appid') || !config_get('qqlogin_appkey')) {
+            return redirect('/admin/qqset');
+        }
+        return redirect($this->qqAuthorizeUrl($this->qqState('bind')));
+    }
+
+    /** QQ 互联回调 */
+    public function qqcallback()
+    {
+        $code = trim((string)input('get.code', ''));
+        $state = trim((string)input('get.state', ''));
+        $saved = session('qq_state');
+        $intent = session('qq_intent');
+        session('qq_state', null);
+        session('qq_intent', null);
+
+        if (!$code || !$state || !$saved || $state !== $saved) {
+            return $this->qqMessage('授权校验失败，请重新发起。');
+        }
+        if ($intent == 'bind' && !request()->islogin) {
+            return $this->qqMessage('登录状态已失效，请重新登录后台再绑定。');
+        }
+
+        $token = $this->qqAccessToken($code);
+        if (!$token) {
+            return $this->qqMessage('获取 access_token 失败，请检查 AppID / AppKey 与回调地址。');
+        }
+        $openid = $this->qqOpenid($token);
+        if (!$openid) {
+            return $this->qqMessage('获取 openid 失败，请稍后再试。');
+        }
+
+        if ($intent == 'bind') {
+            $info = $this->qqUserInfo($token, $openid);
+            config_set('qqlogin_openid', $openid);
+            config_set('qqlogin_nickname', $info['nickname'] ?? '');
+            cache('configs', null);
+            return redirect('/admin/qqset');
+        }
+
+        if ($openid !== config_get('qqlogin_openid')) {
+            return $this->qqMessage('这个 QQ 不是已绑定的管理员 QQ，无法登录。');
+        }
+
+        $this->qqLoginSession();
+        return redirect('/admin/index');
+    }
+
+    /** QQ 一键登录设置 */
+    public function qqset()
+    {
+        if (request()->isAjax()) {
+            config_set('qqlogin_enable', input('post.enable') ? 1 : 0);
+            config_set('qqlogin_appid', trim((string)input('post.appid', '')));
+            config_set('qqlogin_appkey', trim((string)input('post.appkey', '')));
+            cache('configs', null);
+            return json(['code' => 0]);
+        }
+        View::assign('callback', $this->qqCallbackUrl());
+        return view();
+    }
+
+    /** 解除绑定 */
+    public function qqunbind()
+    {
+        if (!request()->isAjax()) {
+            return json(['code' => -1, 'msg' => '非法请求']);
+        }
+        config_set('qqlogin_openid', '');
+        config_set('qqlogin_nickname', '');
+        cache('configs', null);
+        return json(['code' => 0]);
     }
 
     public function logout()

@@ -29,6 +29,8 @@
         .captcha {width:60%;display:inline-block;}
         .captcha-img {display:inline-block;width:34%;float:right;}
         .captcha-img img {height:34px;border:1px solid #e6e6e6;height:36px;width:100%;}
+      .qq-login-btn {background:#12B7F5;color:#fff;border-color:#12B7F5;}
+      .qq-login-btn:hover {background:#0fa6e0;color:#fff;}
     </style>
 </head>
 <body>
@@ -56,6 +58,11 @@
                 </div>
                 <div class="layui-form-item">
                     <button class="layui-btn layui-btn layui-btn-normal layui-btn-fluid" lay-submit="" lay-filter="login">登  录</button>
+{if $qqlogin}
+                    <div class="layui-form-item">
+                        <a class="layui-btn layui-btn-fluid qq-login-btn" href="./qqlogin">QQ 一键登录</a>
+                    </div>
+{/if}
                 </div>
             </form>
         </div>

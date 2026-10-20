@@ -1,0 +1,113 @@
+{extend name="admin/layout" /}
+{block name="title"}QQ 一键登录{/block}
+{block name="main"}
+<div class="container" style="padding-top:70px;">
+<div class="col-xs-12 col-sm-8 col-lg-6 center-block" style="float: none;">
+<div class="panel panel-primary">
+<div class="panel-heading"><h3 class="panel-title">QQ 一键登录</h3></div>
+<div class="panel-body">
+
+  <div class="alert alert-info" style="line-height:1.8;">
+    需要在 <a href="https://connect.qq.com/" target="_blank" rel="noopener">QQ 互联</a> 申请「网站应用」，
+    审核通过后把 <b>AppID</b>、<b>AppKey</b> 填到下面，并把回调地址填到应用的「回调地址」里。<br/>
+    启用并绑定管理员 QQ 后，后台登录页就会出现「QQ 一键登录」按钮。
+  </div>
+
+  <form onsubmit="return saveQQ(this)" method="post" class="form" role="form">
+    <div class="form-group">
+      <label>启用 QQ 一键登录：</label>
+      <input type="checkbox" name="enable" value="1" {if config_get('qqlogin_enable')}checked{/if}/>
+    </div>
+    <div class="form-group">
+      <label>AppID：</label>
+      <input type="text" name="appid" value="{:config_get('qqlogin_appid')}" class="form-control" placeholder="QQ 互联应用的 APP ID"/>
+    </div>
+    <div class="form-group">
+      <label>AppKey：</label>
+      <input type="text" name="appkey" value="{:config_get('qqlogin_appkey')}" class="form-control" placeholder="QQ 互联应用的 APP Key"/>
+    </div>
+    <div class="form-group">
+      <label>回调地址（填到 QQ 互联后台）：</label>
+      <div class="input-group">
+        <input type="text" id="callback" value="{$callback}" class="form-control" readonly onclick="this.select()"/>
+        <span class="input-group-btn">
+          <button class="btn btn-default" type="button" onclick="copyCallback()">复制</button>
+        </span>
+      </div>
+    </div>
+    <div class="form-group text-center">
+      <input type="submit" name="submit" value="保存" class="btn btn-success btn-block"/>
+    </div>
+  </form>
+
+  <hr/>
+  <div class="form-group">
+    <label>绑定的管理员 QQ：</label>
+    <div style="margin-top:6px;">
+      {if config_get('qqlogin_openid')}
+        <span style="color:#3c763d;">
+          已绑定{if config_get('qqlogin_nickname')}：{:config_get('qqlogin_nickname')}{/if}
+        </span>
+        <button class="btn btn-default btn-sm" type="button" onclick="unbindQQ()" style="margin-left:8px;">解除绑定</button>
+        <button class="btn btn-default btn-sm" type="button" onclick="location.href='./qqbind'" style="margin-left:4px;">换一个 QQ</button>
+      {else /}
+        <span style="color:#8a6d3b;">未绑定</span>
+        <button class="btn btn-primary btn-sm" type="button" onclick="location.href='./qqbind'" style="margin-left:8px;">绑定我的 QQ</button>
+      {/if}
+    </div>
+    <p class="help-block" style="margin-top:8px;">
+      只有绑定的这个 QQ 能一键登录后台；换号或解绑都需要先登录进来操作。
+    </p>
+  </div>
+
+</div>
+</div>
+</div>
+<script src="/static/js/layer/layer.js"></script>
+<script>
+function saveQQ(obj){
+    var ii = layer.load(2, {shade:[0.1,'#fff']});
+    $.ajax({
+        type : 'POST',
+        url : './qqset',
+        data : $(obj).serialize() + '&enable=' + ($(obj).find('input[name=enable]').is(':checked') ? 1 : 0),
+        dataType : 'json',
+        success : function(data) {
+            layer.close(ii);
+            if(data.code == 0){
+                layer.msg('保存成功', {icon: 1});
+                setTimeout(function(){ location.reload(); }, 800);
+            }else{
+                layer.alert(data.msg, {icon: 2})
+            }
+        },
+        error:function(){
+            layer.close(ii);
+            layer.msg('服务器错误');
+        }
+    });
+    return false;
+}
+
+function copyCallback(){
+    var el = document.getElementById('callback');
+    el.select();
+    document.execCommand('copy');
+    layer.msg('已复制', {icon: 1});
+}
+
+function unbindQQ(){
+    layer.confirm('确定解除这个 QQ 的绑定吗？解绑后不能再使用 QQ 一键登录。', {icon: 3}, function(idx){
+        layer.close(idx);
+        $.post('./qqunbind', {}, function(res){
+            if(res.code == 0){
+                layer.msg('已解绑', {icon: 1});
+                setTimeout(function(){ location.reload(); }, 800);
+            }else{
+                layer.alert(res.msg || '操作失败', {icon: 2});
+            }
+        }, 'json');
+    });
+}
+</script>
+{/block}
