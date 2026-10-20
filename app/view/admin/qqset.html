@@ -19,6 +19,14 @@
       <input type="checkbox" name="enable" value="1" {if config_get('qqlogin_enable')}checked{/if}/>
     </div>
     <div class="form-group">
+      <label>未绑定 QQ 时，允许第一个登录的 QQ 自动绑定为管理员：</label>
+      <input type="checkbox" name="autobind" value="1" {if config('sys.qqlogin_autobind') !== '0'}checked{/if}/>
+      <p class="help-block" style="margin:4px 0 0;">
+        审核期间建议保持开启：审核人员点「QQ 一键登录」能直接完成授权并进入后台。
+        绑定完成后可以关掉这一项。
+      </p>
+    </div>
+    <div class="form-group">
       <label>AppID：</label>
       <input type="text" name="appid" value="{:config_get('qqlogin_appid')}" class="form-control" placeholder="QQ 互联应用的 APP ID"/>
     </div>

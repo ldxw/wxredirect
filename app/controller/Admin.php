@@ -48,11 +48,11 @@ class Admin extends BaseController
     }
 
 
-    /** QQ 互联是否已配置并完成绑定 */
+    /** QQ 互联是否已启用并配置好（不要求已绑定） */
     private function qqReady()
     {
         return config_get('qqlogin_enable') && config_get('qqlogin_appid')
-            && config_get('qqlogin_appkey') && config_get('qqlogin_openid');
+            && config_get('qqlogin_appkey');
     }
 
     private function qqCallbackUrl()
@@ -140,6 +140,26 @@ class Admin extends BaseController
         return is_array($data) && isset($data['ret']) && $data['ret'] == 0 ? $data : [];
     }
 
+    /**
+     * 登录时判断身份：已绑定则比对 openid；未绑定且允许自动绑定时，把当前 QQ 绑为管理员
+     */
+    private function qqMatchOrBind($openid, $nickname)
+    {
+        $bound = (string)config_get('qqlogin_openid');
+        if ($bound !== '') {
+            return $bound === $openid;
+        }
+        // config_get 会把 '0' 当成空值，这里直接读原始配置：未设置视为开启
+        $autobind = config('sys.qqlogin_autobind');
+        if ($autobind !== null && (string)$autobind === '0') {
+            return false;
+        }
+        config_set('qqlogin_openid', $openid);
+        config_set('qqlogin_nickname', $nickname);
+        cache('configs', null);
+        return true;
+    }
+
     private function qqLoginSession()
     {
         $username = config_get('admin_username');
@@ -174,9 +194,6 @@ class Admin extends BaseController
     {
         if (!config_get('qqlogin_enable') || !config_get('qqlogin_appid') || !config_get('qqlogin_appkey')) {
             return $this->qqMessage('后台没有开启 QQ 一键登录。');
-        }
-        if (!config_get('qqlogin_openid')) {
-            return $this->qqMessage('还没有绑定管理员 QQ，请先用账号密码登录后台完成绑定。');
         }
         return redirect($this->qqAuthorizeUrl($this->qqState('login')));
     }
@@ -227,7 +244,8 @@ class Admin extends BaseController
             return redirect('/admin/qqset');
         }
 
-        if ($openid !== config_get('qqlogin_openid')) {
+        $info = $this->qqUserInfo($token, $openid);
+        if (!$this->qqMatchOrBind($openid, $info['nickname'] ?? '')) {
             return $this->qqMessage('这个 QQ 不是已绑定的管理员 QQ，无法登录。');
         }
 
@@ -240,6 +258,7 @@ class Admin extends BaseController
     {
         if (request()->isAjax()) {
             config_set('qqlogin_enable', input('post.enable') ? 1 : 0);
+            config_set('qqlogin_autobind', input('post.autobind') ? 1 : 0);
             config_set('qqlogin_appid', trim((string)input('post.appid', '')));
             config_set('qqlogin_appkey', trim((string)input('post.appkey', '')));
             cache('configs', null);
