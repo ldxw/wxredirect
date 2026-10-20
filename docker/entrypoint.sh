@@ -23,4 +23,13 @@ chmod 755 /var/www/html
 chown -R www-data:www-data /data 2>/dev/null || true
 chown -h www-data:www-data /var/www/html/.env /var/www/html/runtime 2>/dev/null || true
 
+# 安装页的数据库默认值跟着 compose 里的配置走（服务名 / 库名 / 用户名）
+install_view=/var/www/html/app/view/install/index.html
+if [ -f "$install_view" ]; then
+    sed -i "s|name=\"mysql_host\" value=\"[^\"]*\"|name=\"mysql_host\" value=\"${DB_HOST:-db}\"|" "$install_view"
+    sed -i "s|name=\"mysql_port\" value=\"[^\"]*\"|name=\"mysql_port\" value=\"${DB_PORT:-3306}\"|" "$install_view"
+    sed -i "s|name=\"mysql_name\" value=\"[^\"]*\"|name=\"mysql_name\" value=\"${DB_NAME:-wxredirect}\"|" "$install_view"
+    sed -i "s|name=\"mysql_user\" value=\"[^\"]*\"|name=\"mysql_user\" value=\"${DB_USER:-wxredirect}\"|" "$install_view"
+fi
+
 exec docker-php-entrypoint "$@"
