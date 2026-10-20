@@ -18,7 +18,7 @@ Route::get('/alipayappauth', 'index/alipayappauth');
 Route::get('/qqoauth', 'index/qqoauth');
 Route::get('/token', 'index/token');
 Route::get('/qytoken', 'index/qytoken');
-Route::get('/return', 'index/return');
+Route::get('/return', 'index/return')->middleware(\think\middleware\SessionInit::class);
 Route::get('/alipayreturn', 'index/alipayreturn');
 Route::any('/wxserver', 'index/wxserver');
 
@@ -28,7 +28,6 @@ Route::get('/admin/verifycode', 'admin/verifycode')->middleware(\think\middlewar
 Route::any('/admin/login', 'admin/login')->middleware(\think\middleware\SessionInit::class);
 Route::get('/admin/logout', 'admin/logout');
 Route::get('/admin/qqlogin', 'admin/qqlogin')->middleware(\think\middleware\SessionInit::class);
-Route::get('/admin/qqcallback', 'admin/qqcallback')->middleware(\think\middleware\SessionInit::class);
 
 Route::get('/admin/', function () {
     return redirect('index');

@@ -162,7 +162,7 @@ function base62_decode($data){
     $i = 0;
     $tempArr = array();
     while($i<$len){
-        $temp = decbin(($base62Arr[$data[$i]]-$i%2)/4);
+        $temp = decbin(intdiv(($base62Arr[$data[$i]] ?? 0) - $i % 2, 4));
         $tempArr[] = str_pad($temp,4,'0',STR_PAD_LEFT);
         ++$i;
     }

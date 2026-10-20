@@ -57,7 +57,8 @@ class Admin extends BaseController
 
     private function qqCallbackUrl()
     {
-        return rtrim(request()->domain(), '/') . '/admin/qqcallback';
+        // QQ 互联后台登记的是 域名/return，登录也走这里
+        return rtrim(request()->domain(), '/') . '/return';
     }
 
     private function qqState($intent)
@@ -210,17 +211,17 @@ class Admin extends BaseController
         return redirect($this->qqAuthorizeUrl($this->qqState('bind')));
     }
 
-    /** QQ 互联回调 */
-    public function qqcallback()
+    /**
+     * QQ 授权回调（由 Index::return 在识别出管理员登录 state 后调用）
+     */
+    public function qqFinish($code)
     {
-        $code = trim((string)input('get.code', ''));
-        $state = trim((string)input('get.state', ''));
-        $saved = session('qq_state');
         $intent = session('qq_intent');
+        $saved = session('qq_state');
         session('qq_state', null);
         session('qq_intent', null);
 
-        if (!$code || !$state || !$saved || $state !== $saved) {
+        if (!$saved) {
             return $this->qqMessage('授权校验失败，请重新发起。');
         }
         if ($intent == 'bind' && !request()->islogin) {
@@ -236,15 +237,15 @@ class Admin extends BaseController
             return $this->qqMessage('获取 openid 失败，请稍后再试。');
         }
 
+        $info = $this->qqUserInfo($token, $openid);
+
         if ($intent == 'bind') {
-            $info = $this->qqUserInfo($token, $openid);
             config_set('qqlogin_openid', $openid);
             config_set('qqlogin_nickname', $info['nickname'] ?? '');
             cache('configs', null);
             return redirect('/admin/qqset');
         }
 
-        $info = $this->qqUserInfo($token, $openid);
         if (!$this->qqMatchOrBind($openid, $info['nickname'] ?? '')) {
             return $this->qqMessage('这个 QQ 不是已绑定的管理员 QQ，无法登录。');
         }

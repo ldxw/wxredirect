@@ -206,6 +206,12 @@ class Index extends BaseController
         $state = input('get.state');
         if (!$code || !$state) return $this->error('回调参数不能为空');
 
+        // 后台 QQ 一键登录：state 与 session 里的一致就走登录流程
+        $adminState = session('qq_state');
+        if ($adminState && hash_equals((string)$adminState, (string)$state)) {
+            return app()->make(\app\controller\Admin::class)->qqFinish($code);
+        }
+
         $id = authcode2($state, 'DECODE', config_get('syskey'));
         if (!$id) return $this->error('state参数错误');
 
