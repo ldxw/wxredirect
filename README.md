@@ -45,6 +45,12 @@ location / {
 
 需要 Docker 与 Docker Compose 插件，镜像内置 PHP 8.3 + Apache，不用另外配置 PHP 和伪静态。
 
+也可以直接用构建好的镜像（GitHub Actions 手动构建，标签为上游版本号）：
+
+```bash
+docker pull ghcr.io/ldxw/wxredirect:latest
+```
+
 ```bash
 cp .env.docker.example .env    # 修改端口与数据库密码
 mkdir -p data
