@@ -7,24 +7,21 @@
 <div class="panel-heading"><h3 class="panel-title">QQ 一键登录</h3></div>
 <div class="panel-body">
 
+  <div class="alert alert-warning" style="line-height:1.8;">
+    <b>这个入口目前只用于 QQ 互联接入申请。</b><br/>
+    启用后登录页会显示「QQ 一键登录」按钮，点进去可以完整走完 QQ 授权，方便审核验证；
+    但不会真正登录后台，后台仍然只用账号密码登录。
+  </div>
+
   <div class="alert alert-info" style="line-height:1.8;">
     需要在 <a href="https://connect.qq.com/" target="_blank" rel="noopener">QQ 互联</a> 申请「网站应用」，
-    审核通过后把 <b>AppID</b>、<b>AppKey</b> 填到下面；回调地址用下面这一串（QQ 互联的默认回调）。<br/>
-    启用并绑定管理员 QQ 后，后台登录页就会出现「QQ 一键登录」按钮。
+    把 <b>AppID</b>、<b>AppKey</b> 填到下面；回调地址用下面这一串（QQ 互联的默认回调）。
   </div>
 
   <form onsubmit="return saveQQ(this)" method="post" class="form" role="form">
     <div class="form-group">
-      <label>启用 QQ 一键登录：</label>
+      <label>启用 QQ 一键登录（仅申请展示）：</label>
       <input type="checkbox" name="enable" value="1" {if config_get('qqlogin_enable')}checked{/if}/>
-    </div>
-    <div class="form-group">
-      <label>未绑定 QQ 时，允许第一个登录的 QQ 自动绑定为管理员：</label>
-      <input type="checkbox" name="autobind" value="1" {if config('sys.qqlogin_autobind') !== '0'}checked{/if}/>
-      <p class="help-block" style="margin:4px 0 0;">
-        审核期间建议保持开启：审核人员点「QQ 一键登录」能直接完成授权并进入后台。
-        绑定完成后可以关掉这一项。
-      </p>
     </div>
     <div class="form-group">
       <label>AppID：</label>
@@ -47,26 +44,6 @@
       <input type="submit" name="submit" value="保存" class="btn btn-success btn-block"/>
     </div>
   </form>
-
-  <hr/>
-  <div class="form-group">
-    <label>绑定的管理员 QQ：</label>
-    <div style="margin-top:6px;">
-      {if config_get('qqlogin_openid')}
-        <span style="color:#3c763d;">
-          已绑定{if config_get('qqlogin_nickname')}：{:config_get('qqlogin_nickname')}{/if}
-        </span>
-        <button class="btn btn-default btn-sm" type="button" onclick="unbindQQ()" style="margin-left:8px;">解除绑定</button>
-        <button class="btn btn-default btn-sm" type="button" onclick="location.href='./qqbind'" style="margin-left:4px;">换一个 QQ</button>
-      {else /}
-        <span style="color:#8a6d3b;">未绑定</span>
-        <button class="btn btn-primary btn-sm" type="button" onclick="location.href='./qqbind'" style="margin-left:8px;">绑定我的 QQ</button>
-      {/if}
-    </div>
-    <p class="help-block" style="margin-top:8px;">
-      只有绑定的这个 QQ 能一键登录后台；换号或解绑都需要先登录进来操作。
-    </p>
-  </div>
 
 </div>
 </div>
@@ -102,20 +79,6 @@ function copyCallback(){
     el.select();
     document.execCommand('copy');
     layer.msg('已复制', {icon: 1});
-}
-
-function unbindQQ(){
-    layer.confirm('确定解除这个 QQ 的绑定吗？解绑后不能再使用 QQ 一键登录。', {icon: 3}, function(idx){
-        layer.close(idx);
-        $.post('./qqunbind', {}, function(res){
-            if(res.code == 0){
-                layer.msg('已解绑', {icon: 1});
-                setTimeout(function(){ location.reload(); }, 800);
-            }else{
-                layer.alert(res.msg || '操作失败', {icon: 2});
-            }
-        }, 'json');
-    });
 }
 </script>
 {/block}

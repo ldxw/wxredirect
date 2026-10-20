@@ -141,40 +141,21 @@ class Admin extends BaseController
         return is_array($data) && isset($data['ret']) && $data['ret'] == 0 ? $data : [];
     }
 
-    /**
-     * 登录时判断身份：已绑定则比对 openid；未绑定且允许自动绑定时，把当前 QQ 绑为管理员
-     */
-    private function qqMatchOrBind($openid, $nickname)
+    private function qqNotice($nickname)
     {
-        $bound = (string)config_get('qqlogin_openid');
-        if ($bound !== '') {
-            return $bound === $openid;
-        }
-        // config_get 会把 '0' 当成空值，这里直接读原始配置：未设置视为开启
-        $autobind = config('sys.qqlogin_autobind');
-        if ($autobind !== null && (string)$autobind === '0') {
-            return false;
-        }
-        config_set('qqlogin_openid', $openid);
-        config_set('qqlogin_nickname', $nickname);
-        cache('configs', null);
-        return true;
-    }
-
-    private function qqLoginSession()
-    {
-        $username = config_get('admin_username');
-        $session = md5($username . config_get('admin_password'));
-        $expiretime = time() + 2562000;
-        $token = authcode("{$username}\t{$session}\t{$expiretime}", 'ENCODE', config_get('syskey'));
-        cookie('admin_token', $token, ['expire' => $expiretime, 'httponly' => true]);
-        config_set('admin_lastlogin', date('Y-m-d H:i:s'));
-        Db::name('log')->insert([
-            'uid'     => 0,
-            'action'  => '登录后台',
-            'data'    => 'IP:' . $this->clientip . '（QQ 一键登录）',
-            'addtime' => date("Y-m-d H:i:s"),
-        ]);
+        $name = $nickname !== '' ? '，' . htmlspecialchars($nickname, ENT_QUOTES, 'UTF-8') : '';
+        $html = '<!doctype html><html><head><meta charset="utf-8"><title>QQ 授权成功</title>'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+            . '<body style="margin:0;background:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',\'Microsoft YaHei\',sans-serif">'
+            . '<div style="max-width:460px;margin:15vh auto;background:#fff;border-radius:8px;padding:28px 24px;box-shadow:0 2px 12px rgba(0,0,0,.08)">'
+            . '<div style="width:44px;height:44px;border-radius:50%;background:#E8F7EE;display:flex;align-items:center;justify-content:center;margin-bottom:14px">'
+            . '<span style="color:#18A058;font-size:24px;line-height:1">✓</span></div>'
+            . '<h3 style="margin:0 0 10px;font-size:18px;color:#333">QQ 授权成功</h3>'
+            . '<p style="margin:0 0 8px;color:#666;line-height:1.7">已获取到 QQ 用户信息' . $name . '。</p>'
+            . '<p style="margin:0 0 20px;color:#999;line-height:1.7;font-size:13px">该入口目前仅用于 QQ 互联接入申请演示，暂未开放实际登录功能。</p>'
+            . '<a href="/admin/login" style="display:inline-block;padding:9px 18px;border-radius:4px;background:#1E9FFF;color:#fff;text-decoration:none">返回登录页</a>'
+            . '</div></body></html>';
+        return response($html);
     }
 
     private function qqMessage($msg)
@@ -199,33 +180,18 @@ class Admin extends BaseController
         return redirect($this->qqAuthorizeUrl($this->qqState('login')));
     }
 
-    /** 已登录状态下绑定当前 QQ */
-    public function qqbind()
-    {
-        if (!request()->islogin) {
-            return redirect('/admin/login');
-        }
-        if (!config_get('qqlogin_appid') || !config_get('qqlogin_appkey')) {
-            return redirect('/admin/qqset');
-        }
-        return redirect($this->qqAuthorizeUrl($this->qqState('bind')));
-    }
-
     /**
      * QQ 授权回调（由 Index::return 在识别出管理员登录 state 后调用）
+     * 仅用于 QQ 互联接入申请演示：走完授权但不建立后台登录态
      */
     public function qqFinish($code)
     {
-        $intent = session('qq_intent');
         $saved = session('qq_state');
         session('qq_state', null);
         session('qq_intent', null);
 
         if (!$saved) {
             return $this->qqMessage('授权校验失败，请重新发起。');
-        }
-        if ($intent == 'bind' && !request()->islogin) {
-            return $this->qqMessage('登录状态已失效，请重新登录后台再绑定。');
         }
 
         $token = $this->qqAccessToken($code);
@@ -238,20 +204,7 @@ class Admin extends BaseController
         }
 
         $info = $this->qqUserInfo($token, $openid);
-
-        if ($intent == 'bind') {
-            config_set('qqlogin_openid', $openid);
-            config_set('qqlogin_nickname', $info['nickname'] ?? '');
-            cache('configs', null);
-            return redirect('/admin/qqset');
-        }
-
-        if (!$this->qqMatchOrBind($openid, $info['nickname'] ?? '')) {
-            return $this->qqMessage('这个 QQ 不是已绑定的管理员 QQ，无法登录。');
-        }
-
-        $this->qqLoginSession();
-        return redirect('/admin/index');
+        return $this->qqNotice($info['nickname'] ?? '');
     }
 
     /** QQ 一键登录设置 */
@@ -259,7 +212,6 @@ class Admin extends BaseController
     {
         if (request()->isAjax()) {
             config_set('qqlogin_enable', input('post.enable') ? 1 : 0);
-            config_set('qqlogin_autobind', input('post.autobind') ? 1 : 0);
             config_set('qqlogin_appid', trim((string)input('post.appid', '')));
             config_set('qqlogin_appkey', trim((string)input('post.appkey', '')));
             cache('configs', null);
@@ -267,18 +219,6 @@ class Admin extends BaseController
         }
         View::assign('callback', $this->qqCallbackUrl());
         return view();
-    }
-
-    /** 解除绑定 */
-    public function qqunbind()
-    {
-        if (!request()->isAjax()) {
-            return json(['code' => -1, 'msg' => '非法请求']);
-        }
-        config_set('qqlogin_openid', '');
-        config_set('qqlogin_nickname', '');
-        cache('configs', null);
-        return json(['code' => 0]);
     }
 
     public function logout()
