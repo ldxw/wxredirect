@@ -41,6 +41,35 @@ location / {
 </IfModule>
 ```
 
+### Docker 部署
+
+需要 Docker 与 Docker Compose 插件，镜像内置 PHP 8.3 + Apache，不用另外配置 PHP 和伪静态。
+
+```bash
+cp .env.docker.example .env    # 修改端口与数据库密码
+mkdir -p data
+docker compose up -d --build
+```
+
+启动后访问 `http://服务器IP:8080`（端口由 `.env` 里的 `APP_PORT` 决定），按页面提示完成安装：
+
+| 安装项 | 填写内容 |
+|---|---|
+| 数据库地址 | `db` |
+| 数据库端口 | `3306` |
+| 数据库名 | `.env` 里的 `DB_NAME` |
+| 数据库用户名 | `.env` 里的 `DB_USER` |
+| 数据库密码 | `.env` 里的 `DB_PASSWORD` |
+| 表前缀 | 默认 `cloud_` 即可 |
+
+安装状态保存在宿主机 `./data/.env`，数据库在 `db_data` 卷里，`docker compose down` 之后重新 `up`
+不需要重新安装。要重装就删掉 `data/.env` 并清空数据库卷：
+
+```bash
+docker compose down -v
+rm -f data/.env
+```
+
 ## 支持与反馈
 
 🌐 作者信息：消失的彩虹海([https://blog.cccyun.cn](https://blog.cccyun.cn/))

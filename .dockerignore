@@ -1,0 +1,7 @@
+.git
+.github
+data
+.env
+*.log
+docker-compose.override.yml
+README.md

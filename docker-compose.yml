@@ -1,0 +1,41 @@
+services:
+  app:
+    build: .
+    image: wxredirect:latest
+    container_name: wxredirect
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      # .env 和 runtime 落在这里，删除/重建容器不会丢安装状态
+      - ./data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Shanghai
+
+  db:
+    image: mysql:8.0
+    container_name: wxredirect-db
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?请在 .env 里设置 DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-wxredirect}
+      MYSQL_USER: ${DB_USER:-wxredirect}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?请在 .env 里设置 DB_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      # $$ 是容器内变量，避免密码里的特殊字符被 compose 展开
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  db_data:
