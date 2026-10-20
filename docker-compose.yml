@@ -14,11 +14,6 @@ services:
         condition: service_healthy
     environment:
       TZ: Asia/Shanghai
-      # 安装页默认值：服务名 / 库名 / 用户名
-      DB_HOST: ${DB_HOST:-db}
-      DB_PORT: "3306"
-      DB_NAME: ${DB_NAME:-wxredirect}
-      DB_USER: ${DB_USER:-wxredirect}
 
   db:
     image: mysql:8.0

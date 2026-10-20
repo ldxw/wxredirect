@@ -72,7 +72,7 @@ docker compose up -d --build
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| 默认 `localhost` 报错 | 容器里的 localhost 是容器自己，不是数据库 | 地址填 `db`（镜像里已默认成 `db`） |
+| 默认 `localhost` 报错 | 容器里的 localhost 是容器自己，不是数据库 | 地址填 `db` |
 | 填 `db` 也报错 | 只单独 `docker run` 了镜像，没有起数据库 | 用本仓库的 compose 起整套，或把地址换成你已有的 MySQL 地址 |
 
 自检：
