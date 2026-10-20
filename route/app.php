@@ -40,6 +40,7 @@ Route::group('admin', function () {
     Route::any('/index', 'admin/index');
     Route::any('/set', 'admin/set');
     Route::any('/qqset', 'admin/qqset');
+    Route::any('/home', 'admin/home');
     Route::get('/qqbind', 'admin/qqbind');
     Route::post('/qqunbind', 'admin/qqunbind');
     Route::get('/doc', 'admin/doc');

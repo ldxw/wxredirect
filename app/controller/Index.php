@@ -12,6 +12,10 @@ class Index extends BaseController
 {
     public function index()
     {
+        // 后台可设置默认首页：首页 or 管理员登录页
+        if (config('sys.default_page') === 'admin') {
+            return redirect('/admin');
+        }
         return view();
     }
 

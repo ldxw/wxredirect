@@ -672,6 +672,21 @@ class Admin extends BaseController
         return view();
     }
 
+    /** 默认首页设置 */
+    public function home()
+    {
+        if (request()->isAjax()) {
+            $page = input('post.default_page', 'index');
+            if (!in_array($page, ['index', 'admin'], true)) {
+                $page = 'index';
+            }
+            config_set('default_page', $page);
+            cache('configs', null);
+            return json(['code' => 0]);
+        }
+        return view();
+    }
+
     public function cleancache()
     {
         Cache::clear();
