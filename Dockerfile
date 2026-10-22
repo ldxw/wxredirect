@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 
-FROM php:8.3-apache
+# 固定到 8.3.36：修复 CVE-2026-109618 / CVE-2026-109619 两个可未认证 RCE 的核心漏洞
+FROM php:8.3.36-apache
 
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public \
     TZ=Asia/Shanghai
